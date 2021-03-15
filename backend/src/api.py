@@ -1,4 +1,5 @@
 import os
+from re import S
 from flask import Flask, request, jsonify, abort
 from flask.globals import session
 from sqlalchemy import exc
@@ -11,7 +12,7 @@ from .auth.auth import AuthError, requires_auth
 app = Flask(__name__)
 setup_db(app)
 CORS(app)
-
+dbsession = session()
 # '''
 # @TODO uncomment the following line to initialize the datbase
 # !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
@@ -30,7 +31,7 @@ def get_drinks():
 
 @app.route('/drinks-detail')
 @requires_auth(permission='get:drinks-detail')
-def get_detailed_drinks():
+def get_detailed_drinks(_):
     return jsonify({
         "success": True, "drinks":[drink.long() for drink in Drink.query.all()]
     })
@@ -38,11 +39,14 @@ def get_detailed_drinks():
 
 @app.route('/drinks', methods=['POST'])
 @requires_auth(permission='post:drinks')
-def create_drink():
+def create_drink(_):
     body = request.get_json()
     title = body.get('title', None)
     recipe = body.get('recipe', None)
-    drink = Drink(title, recipe)
+    drink = Drink()
+    drink.title = title
+    drink.recipe = json.dumps(recipe)
+
     drink.insert()
     
     return jsonify({
@@ -51,10 +55,10 @@ def create_drink():
         })
 
 
-@app.route('/drinks/<int:id>', methods=['PATCH'])
+@app.route('/drinks/<id>', methods=['PATCH'])
 @requires_auth(permission='patch:drinks')
-def edit_drink(id):
-    drink = Drink.query.filter(Drink.id == id).one_none()
+def edit_drink(_, id):
+    drink = Drink.query.filter(Drink.id == id).one_or_none()
 
     if drink is None:
         AuthError(404, 404)
@@ -62,9 +66,9 @@ def edit_drink(id):
     body = request.get_json()
 
     drink.title = body.get('title', None)
-    drink.recipe = body.get('recipe', None)
+    drink.recipe = json.dumps(body.get('recipe', None))
 
-    session.commit()
+    dbsession.commit()
 
     return jsonify({
         "success": True, 

@@ -25,21 +25,21 @@ class AuthError(Exception):
 def get_token_auth_header():
     
     if 'Authorization' not in request.headers:
-        AuthError({
+        raise AuthError({
                     "code": "invalid_claims",
                     "description": "Authorization not included in headers"
                     }, 401)
     
     auth_header = request.headers['Authorization']
-    header_parts  =auth_header.split(' ')
+    header_parts = auth_header.split(' ')
 
     if len(header_parts) != 2:
-        AuthError({
+        raise AuthError({
                     "code": "invalid_authorization_key_format",
                     "description": "Authorization not in correct format"
                     }, 401)
     elif header_parts[0].lower() != 'bearer':
-        AuthError({
+        raise AuthError({
                     "code": "bearer_not_in_authorization",
                     "description": " bearer not in Authorization"
                     }, 401)
@@ -49,16 +49,18 @@ def get_token_auth_header():
 
 def check_permissions(permission, payload):
     if 'permissions' not in payload:
-                        raise AuthError({
+        raise AuthError({
                             'code': 'invalid_claims',
                             'description': 'Permissions not included in JWT.'
-                        }, 400)
+            }, 403)
 
     if permission not in payload['permissions']:
         raise AuthError({
             'code': 'unauthorized',
             'description': 'Permission not found.'
-        }, 403)
+        }, 401)
+
+
     return True
 
 
@@ -103,6 +105,7 @@ def verify_decode_jwt(token):
                                 " token."}, 401)
 
         _request_ctx_stack.top.current_user = payload
+        return payload
     else:
         raise AuthError({"code": "invalid_header", "description": "Unable to find appropriate key"}, 401)
 
